@@ -23,8 +23,16 @@ lint:
 # миграции
 # создание таблицы юзеров
 migrate-up:
-	migrate -path internal/db/migrations -database "postgres://rtce:rtcepass@localhost:5432/rtce_dev?sslmode=disable" up
+	docker run --rm -v "$(PWD)/internal/db/migrations":/migrations \
+	--network=docker_rtce_net \
+	migrate/migrate \
+	-path=/migrations/ \
+	-database "postgres://rtce:rtcepass@db:5432/rtce_dev?sslmode=disable" up
 
-# cброс таблицы юзеров
+# откат миграций
 migrate-down:
-	migrate -path internal/db/migrations -database "postgres://rtce:rtcepass@localhost:5432/rtce_dev?sslmode=disable" down
+	echo "y" | docker run --rm -i -v "$(PWD)/internal/db/migrations":/migrations \
+	--network=docker_rtce_net \
+	migrate/migrate \
+	-path=/migrations/ \
+	-database "postgres://rtce:rtcepass@db:5432/rtce_dev?sslmode=disable" down
