@@ -1,12 +1,13 @@
 FROM golang:1.25-alpine AS builder
 
+WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
 
 # cборка
-RUN go build -o rtce ./cmd/editor-server
+RUN go build -o /app/rtce ./cmd/editor-server
 
 FROM alpine:latest
 

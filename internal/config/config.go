@@ -9,6 +9,7 @@ type Config struct {
     Port      string
     DB_DSN    string
     RedisAddr string
+    JWTSecret string
 }
 
 func LoadConfig() *Config {
@@ -25,10 +26,16 @@ func LoadConfig() *Config {
         redisAddr = "redis:6379"
     }
 
+     jwtSecret := os.Getenv("JWT_SECRET")
+    if jwtSecret == "" {
+        jwtSecret = "secret"
+    }
+
     return &Config{
         Port:      port,
         DB_DSN:    dbDSN,
         RedisAddr: redisAddr,
+        JWTSecret: jwtSecret,
     }
 }
 

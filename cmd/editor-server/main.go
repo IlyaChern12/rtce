@@ -3,13 +3,18 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
 
+	"github.com/IlyaChern12/rtce/internal/api"
 	"github.com/IlyaChern12/rtce/internal/config"
 	"github.com/IlyaChern12/rtce/internal/db"
+	"github.com/IlyaChern12/rtce/internal/middleware"
 	"github.com/IlyaChern12/rtce/internal/redisdb"
+	"github.com/IlyaChern12/rtce/internal/repository"
+	"github.com/IlyaChern12/rtce/internal/service"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -24,9 +29,9 @@ func main() {
 		log.Fatalf("Failed to connect to Postgres: %v", err)
 	}
 	defer func() {
-    if err := dbConn.Close(); err != nil {
-        log.Printf("Failed to close Postgres connection: %v", err)
-    }
+		if err := dbConn.Close(); err != nil {
+			log.Printf("Failed to close Postgres connection: %v", err)
+		}
 	}()
 
 	// коннект к редису
@@ -35,9 +40,9 @@ func main() {
 		log.Fatalf("Failed to connect to Redis: %v", err)
 	}
 	defer func() {
-    if err := rdb.Close(); err != nil {
-        log.Printf("Failed to close Redis connection: %v", err)
-    }
+		if err := rdb.Close(); err != nil {
+			log.Printf("Failed to close Redis connection: %v", err)
+		}
 	}()
 
 	app := &App{
@@ -45,15 +50,32 @@ func main() {
 		Redis: rdb,
 	}
 
-	// основные хэндлеры
+	// коннект к репо юзеров
+	userRepo := &repository.UserRepository{DB: dbConn}
+	// коннект к сервису аутентификации
+	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
 
-	// хэндлер на проверку на то жив ли сервис
-	http.HandleFunc("/health", app.health)
-	// хэндлер на готовность
-	http.HandleFunc("/ready", app.ready)
+	// основные хэндлеры
+	authHandler := api.NewAuthHandler(authService)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/register", authHandler.Register)
+	mux.HandleFunc("/login", authHandler.Login)
+	mux.HandleFunc("/health", app.health)
+	mux.HandleFunc("/ready", app.ready)
+	mux.Handle("/me", middleware.AuthMiddleware(cfg.JWTSecret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		userID := r.Context().Value("userID")
+		if userID == nil {
+			http.Error(w, "user not found in context", http.StatusUnauthorized)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(fmt.Sprintf("Hello, user %v", userID)))
+	})))
 
 	log.Println("Server started on port", cfg.Port)
-	log.Fatal(http.ListenAndServe(":" + cfg.Port, nil))
+	log.Fatal(http.ListenAndServe(":"+cfg.Port, mux))
 }
 
 type App struct {
@@ -63,14 +85,14 @@ type App struct {
 
 func (a *App) health(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	_, err := w.Write([]byte("Service is ready"))
+	_, err := w.Write([]byte("Service is healthy"))
 	if err != nil {
 		log.Printf("Failed to write service status: %v", err)
 	}
 }
 
 func (a *App) ready(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 3 * time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
 	// подтянут ли postgres
