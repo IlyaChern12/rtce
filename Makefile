@@ -2,7 +2,7 @@
 
 # подъем всего
 up:
-	docker compose -f docker/docker_compose.yml up -d
+	docker compose -f docker/docker_compose.yml up -d $(BUILD)
 
 # остановка всего
 down:
