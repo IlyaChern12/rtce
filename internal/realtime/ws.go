@@ -8,33 +8,25 @@ import (
 )
 
 var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
+	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-// принимает соединение и делает эхо
 func WSHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println("Failed to upgrade websocket:", err)
+		log.Println("Failed to upgrade:", err)
 		return
 	}
 	defer conn.Close()
 
-	log.Println("New WS connection established")
-
 	for {
-		mt, message, err := conn.ReadMessage()
+		mt, msg, err := conn.ReadMessage()
 		if err != nil {
 			log.Println("read error:", err)
 			break
 		}
-
-		log.Printf("Received: %s", message)
-
-		// эхо обратно клиенту
-		if err := conn.WriteMessage(mt, message); err != nil {
+		log.Printf("Received: %s", msg)
+		if err := conn.WriteMessage(mt, msg); err != nil {
 			log.Println("write error:", err)
 			break
 		}
