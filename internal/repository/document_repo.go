@@ -29,7 +29,7 @@ func (dr *DocumentRepository) Create(ctx context.Context, doc *models.Document) 
 }
 
 // достаем док по id
-func (dr *DocumentRepository) GetByID(ctx context.Context, userID string) ([]models.Document, error) {
+func (dr *DocumentRepository) GetByID(ctx context.Context, userID string) ([]*models.Document, error) {
 	query := `SELECT id, user_id, title, body, created_at, updated_at FROM documents WHERE user_id = $1`
 
 	rows, err := dr.db.QueryContext(ctx, query, userID)
@@ -38,14 +38,13 @@ func (dr *DocumentRepository) GetByID(ctx context.Context, userID string) ([]mod
 	}
 	defer rows.Close()
 
-	var docs []models.Document
-	for rows.Next() {
-		var doc models.Document
+	var docs []*models.Document
 
+	for rows.Next() {
+		doc := &models.Document{}
 		if err := rows.Scan(&doc.ID, &doc.UserID, &doc.Title, &doc.Body, &doc.CreatedAt, &doc.UpdatedAt); err != nil {
 			return nil, err
 		}
-
 		docs = append(docs, doc)
 	}
 

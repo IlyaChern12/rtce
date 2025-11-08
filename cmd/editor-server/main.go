@@ -96,7 +96,10 @@ func main() {
 	))
 
 	// вебсокет
-	mux.HandleFunc("/ws", realtime.WSHandler)
+	hub := realtime.NewHub()
+	go hub.Run() // запускаем хаб
+
+	mux.Handle("/ws", realtime.WSHandler(hub, cfg.JWTSecret))
 
 	log.Println("Server started on port", cfg.Port)
 	log.Fatal(http.ListenAndServe(":"+cfg.Port, mux))
