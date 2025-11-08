@@ -18,7 +18,7 @@ type Request struct {
 	Body  string `json:"body"`
 }
 
-func NewDocumentHanler(repo *repository.DocumentRepository) *DocumentHandler {
+func NewDocumentHandler(repo *repository.DocumentRepository) *DocumentHandler {
 	return &DocumentHandler{
 		repo: repo,
 	}
@@ -53,6 +53,27 @@ func (h *DocumentHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(map[string]string{"id": doc.ID}); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
+}
+
+// /GET - получение всех документов пользователя
+func (h *DocumentHandler) GetByUser(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value("userID").(string)
+	if !ok || userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	docs, err := h.repo.GetByID(r.Context(), userID) // используем метод репозитория
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(docs); err != nil {
 		http.Error(w, "failed to encode response", http.StatusInternalServerError)
 		return
 	}

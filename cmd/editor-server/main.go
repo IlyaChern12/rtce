@@ -12,6 +12,7 @@ import (
 	"github.com/IlyaChern12/rtce/internal/config"
 	"github.com/IlyaChern12/rtce/internal/db"
 	"github.com/IlyaChern12/rtce/internal/middleware"
+	"github.com/IlyaChern12/rtce/internal/realtime"
 	"github.com/IlyaChern12/rtce/internal/redisdb"
 	"github.com/IlyaChern12/rtce/internal/repository"
 	"github.com/IlyaChern12/rtce/internal/service"
@@ -73,6 +74,29 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(fmt.Sprintf("Hello, user %v", userID)))
 	})))
+
+	// репо документов
+	docRepo := repository.NewDocumentRepository(dbConn)
+
+	// хэндлер документов
+	docHandler := api.NewDocumentHandler(docRepo)
+
+	// эндпоинты для документов
+	mux.Handle("/documents", middleware.AuthMiddleware(cfg.JWTSecret)(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.Method {
+			case http.MethodPost:
+				docHandler.Create(w, r)
+			case http.MethodGet:
+				docHandler.GetByUser(w, r)
+			default:
+				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			}
+		}),
+	))
+
+	// вебсокет
+	mux.HandleFunc("/ws", realtime.WSHandler)
 
 	log.Println("Server started on port", cfg.Port)
 	log.Fatal(http.ListenAndServe(":"+cfg.Port, mux))
